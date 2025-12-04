@@ -1,0 +1,286 @@
+:root {
+  /* Paleta de Cores Slim */
+  --bg-color: #ffffff; /* Preto quase absoluto */
+  --bg-secondary: #e2e2e2; /* Cinza muito escuro para cards */
+  --text-primary: #292929; /* Branco puro para destaque */
+  --text-secondary: #000000; /* Cinza claro para rótulos */
+
+  --blue-team: #3b82f6; /* Azul moderno (Tailwind) */
+  --red-team: #ef4444; /* Vermelho moderno (Tailwind) */
+  --accent-gold: #2cca00; /* Dourado sóbrio para rounds/avisos */
+}
+
+body {
+  background: radial-gradient(#484a4a, #1c1e1e);
+  color: var(--text-primary);
+  font-family: 'Roboto', sans-serif; /* Fonte limpa */
+  margin: 0;
+  height: 100vh;
+  overflow: hidden;
+  font-weight: 300; /* Peso leve por padrão */
+}
+
+/* Utilitários */
+.hidden {
+  display: none !important;
+}
+
+/* --- TELA 1: AO VIVO (Minimalista) --- */
+#live-screen {
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 1fr auto 1fr; /* Header e Footer empurram o centro */
+  padding: 20px;
+}
+
+header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 40px;
+}
+
+/* Round e Status limpos, sem "badges" pesadas */
+.round-badge {
+  color: var(--accent-gold);
+  font-size: 1.7rem;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  font-weight: 800;
+}
+.status-badge {
+  color: var(--red-team); /* Vermelho para pausa */
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 700;
+  display: none;
+}
+.paused-anim {
+  animation: pulse-red 1.5s infinite;
+}
+
+/* Área Principal - Layout Limpo */
+main.match-area {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 80px; /* Bastante espaço entre os elementos */
+  margin-top: -50px; /* Ajuste visual vertical */
+}
+
+/* Cards dos Jogadores - Sem bordas pesadas */
+.player-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  /* Apenas uma linha sutil colorida para indicar o time */
+}
+.player-card.blue .player-score {
+  color: var(--blue-team);
+}
+.player-card.red .player-score {
+  color: var(--red-team);
+}
+
+.player-name {
+  font-size: 1.8rem;
+  font-weight: 300;
+  color: #fff;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  width: 100px;
+}
+.player-score {
+  font-size: 8rem; /* Placar gigante */
+  font-weight: 300;
+  line-height: 0.9;
+}
+
+/* Timer Central - Removida a caixa */
+.timer-container {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.timer-display {
+  font-size: 10rem; /* Timer GIGANTE e fino */
+  font-weight: 800; /* Peso super leve */
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums; /* Mantém os números alinhados */
+  line-height: 1;
+  color: #fff;
+}
+.timer-label {
+  font-size: 0.9rem;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 10px;
+}
+.ended .timer-display {
+  color: var(--red-team);
+}
+
+/* Footer (Botão de som discreto) */
+footer {
+  display: flex;
+  justify-content: left;
+  padding-bottom: 20px;
+  align-items: end;
+  padding-bottom: 50px;
+}
+#audio-btn {
+  height: 30px;
+  background: transparent;
+  border: 1px solid var(--text-secondary);
+  color: var(--text-secondary);
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Roboto';
+  font-weight: 300;
+  transition: all 0.3s ease;
+}
+#audio-btn:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+/* --- TELA 2: BRACKET (SLIM) --- */
+#history-screen {
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Fundo sólido limpo, sem textura */
+  background: #fff;
+}
+
+.bracket-container {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  gap: 40px; /* Mais espaço entre colunas */
+}
+
+/* Colunas */
+.phase-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+  position: relative;
+  /* Linha separadora muito sutil */
+  border-right: 1px solid #2a2a2a;
+}
+.phase-column:last-child {
+  border-right: none;
+}
+
+.phase-title {
+  position: absolute;
+  top: 0px;
+  padding-top: 15px;
+  z-index: 1000;
+  color: #000;
+  font-size: 1.4rem;
+
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 900;
+}
+
+/* Card da Luta Slim */
+.match-card {
+  background: #004e44; /* Card chapado, sem blur */
+  width: 30%;
+  max-width: 260px;
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  border-radius: 20px; /* Cantos menos arredondados */
+  position: relative;
+}
+
+.match-card:nth-child(2) {
+  margin-top: 40px;
+}
+
+/* Linhas conectoras finas */
+.match-card::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: 50%;
+  width: 40px;
+  border-end-end-radius: 15px;
+  border-top-right-radius: 15px;
+  height: 8px; /* Linha de 1px */
+  background: #004e44;
+}
+.phase-column:last-child .match-card::after {
+  display: none;
+}
+
+.team-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 1rem;
+}
+.team-name {
+  font-weight: 300;
+  color: #fff;
+  max-width: 75%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.team-score {
+  font-weight: 900;
+  color: #fff;
+}
+
+/* Vencedor sutil */
+.winner-text {
+  font-weight: 900;
+  color: #ffad14;
+}
+
+/* Card de Passagem Direta (Bye) Slim */
+.bye-card {
+  border-color: #444 !important;
+  background: transparent !important;
+  opacity: 0.7;
+}
+.bye-label {
+  text-align: center;
+  color: var(--accent-gold);
+  font-size: 0.7rem;
+  margin-bottom: 5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Destaque Final - Apenas um pouco maior */
+.phase-column.final .match-card {
+  transform: scale(1.1);
+  border-color: var(--accent-gold);
+}
+
+@keyframes pulse-red {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
