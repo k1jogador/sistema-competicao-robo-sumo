@@ -20,13 +20,12 @@ export class TimerGateway implements OnGatewayConnection {
     private matchRepo: Repository<Match>,
   ) {}
 
-  // Estado do Jogo
+  // ESTADO DO JOGO
   private timer: number = 60;
   private isRunning: boolean = false;
   private isPaused: boolean = false;
   private interval: NodeJS.Timeout | null = null;
 
-  // 'MATCH' = Tela do Cronômetro | 'HISTORY' = Tela de Resultados
   private viewMode: 'MATCH' | 'HISTORY' = 'HISTORY';
 
   private matchState = {
@@ -35,31 +34,36 @@ export class TimerGateway implements OnGatewayConnection {
     score1: 0,
     score2: 0,
     round: 1,
-    fase: 'eliminatoria', // Padrão
+    fase: 'preliminar',
   };
 
-  // Quando alguém conecta, mandamos o histórico atualizado se estiver no modo histórico
+  // --- NOVO: FILAS DE ESPERA AUTOMÁTICAS ---
+  // Armazena quem ganhou e está esperando o adversário
+  private queues = {
+    semi: [] as string[], // Vencedores das preliminares vêm pra cá
+    final: [] as string[], // Vencedores das semis vêm pra cá
+  };
+
   handleConnection(client: any) {
     this.broadcastState();
-    if (this.viewMode === 'HISTORY') {
-      this.sendHistory();
-    }
+    this.sendHistory();
   }
 
   @SubscribeMessage('start-match')
   handleStartMatch(
     @MessageBody() data: { nome1: string; nome2: string; fase: string },
   ) {
-    console.log('Iniciando luta com fase:', data.fase); // <--- Adicione este log para debug
-
     this.matchState = {
       nome1: data.nome1,
       nome2: data.nome2,
       score1: 0,
       score2: 0,
       round: 1,
-      fase: data.fase || 'eliminatoria', // <--- ISSO É ESSENCIAL
+      fase: data.fase || 'preliminar',
     };
+
+    // Se iniciamos uma luta usando a fila, removemos os nomes da fila
+    this.removeFromQueue(data.fase, data.nome1, data.nome2);
 
     this.timer = 60;
     this.viewMode = 'MATCH';
@@ -67,27 +71,70 @@ export class TimerGateway implements OnGatewayConnection {
     this.broadcastState();
   }
 
-  // Finalizar a luta e salvar no BD
   @SubscribeMessage('end-match')
   async handleEndMatch() {
     this.stopTimer();
 
-    // Criação do objeto para salvar
+    // 1. Determina Vencedor
+    let winner = '';
+    // Lógica para Bye (sem oponente) ou placar normal
+    if (
+      !this.matchState.nome2 ||
+      this.matchState.nome2 === '-' ||
+      this.matchState.nome2 === ''
+    ) {
+      winner = this.matchState.nome1;
+    } else {
+      if (this.matchState.score1 > this.matchState.score2)
+        winner = this.matchState.nome1;
+      else if (this.matchState.score2 > this.matchState.score1)
+        winner = this.matchState.nome2;
+    }
+
+    // 2. Lógica de Afunilamento (Automática)
+    if (winner) {
+      if (
+        this.matchState.fase === 'preliminar' ||
+        this.matchState.fase === 'quartas'
+      ) {
+        this.queues.semi.push(winner); // Promove para Semi
+      } else if (this.matchState.fase === 'semi') {
+        this.queues.final.push(winner); // Promove para Final
+      }
+    }
+
+    // 3. Salva no Banco
     const match = this.matchRepo.create({
       nome1: this.matchState.nome1,
       nome2: this.matchState.nome2,
       score1: this.matchState.score1,
       score2: this.matchState.score2,
-      fase: this.matchState.fase, // <--- TEM QUE ESTAR AQUI
+      fase: this.matchState.fase,
     });
-
-    console.log('Salvando no banco:', match); // <--- Adicione este log
-
     await this.matchRepo.save(match);
 
     this.viewMode = 'HISTORY';
     this.broadcastState();
     this.sendHistory();
+  }
+
+  @SubscribeMessage('delete-match')
+  async handleDeleteMatch(@MessageBody() data: { id: number }) {
+    await this.matchRepo.delete(data.id);
+    this.sendHistory();
+    // Nota: Deletar a match não remove automaticamente da fila (para evitar complexidade),
+    // mas o Admin pode limpar a fila manualmente reiniciando o server se precisar.
+  }
+
+  // --- MÉTODOS DE CONTROLE (Padrão) ---
+
+  @SubscribeMessage('next-round')
+  handleNextRound() {
+    this.matchState.round++;
+    this.timer = 60;
+    this.stopTimer();
+    this.isPaused = true;
+    this.broadcastState();
   }
 
   @SubscribeMessage('pause-match')
@@ -112,15 +159,6 @@ export class TimerGateway implements OnGatewayConnection {
     this.broadcastState();
   }
 
-  @SubscribeMessage('next-round')
-  handleNextRound() {
-    if (this.matchState.round < 3) this.matchState.round++;
-    this.timer = 60;
-    this.stopTimer();
-    this.isPaused = true;
-    this.broadcastState();
-  }
-
   @SubscribeMessage('update-score')
   handleUpdateScore(
     @MessageBody() data: { player: 1 | 2; action: 'add' | 'remove' },
@@ -133,25 +171,18 @@ export class TimerGateway implements OnGatewayConnection {
 
   @SubscribeMessage('toggle-view')
   handleToggleView() {
-    // Inverte o modo atual
     this.viewMode = this.viewMode === 'MATCH' ? 'HISTORY' : 'MATCH';
-
     this.broadcastState();
-
-    // Se mudou para histórico, precisa enviar os dados do banco
-    if (this.viewMode === 'HISTORY') {
-      this.sendHistory();
-    }
+    if (this.viewMode === 'HISTORY') this.sendHistory();
   }
 
-  // --- Helpers ---
+  // --- HELPERS ---
 
   private startInterval() {
     this.stopTimer();
     this.isRunning = true;
     this.isPaused = false;
     this.broadcastState();
-
     this.interval = setInterval(() => {
       if (this.timer > 0) {
         this.timer--;
@@ -172,18 +203,31 @@ export class TimerGateway implements OnGatewayConnection {
   }
 
   private broadcastState() {
+    // Envia TUDO, inclusive as Filas (Queues) para o Admin saber quem está esperando
     this.server.emit('update-display', {
       time: this.timer,
       ...this.matchState,
       isRunning: this.isRunning,
       isPaused: this.isPaused,
-      viewMode: this.viewMode, // Frontend precisa saber qual tela mostrar
+      viewMode: this.viewMode,
+      queues: this.queues, // <--- IMPORTANTE
     });
   }
 
-  // Busca do banco e manda pro frontend
   private async sendHistory() {
-    const matches = await this.matchRepo.find({ order: { data: 'ASC' } }); // Ordem de criação
+    const matches = await this.matchRepo.find({ order: { data: 'ASC' } });
     this.server.emit('update-history', matches);
+  }
+
+  // Remove nomes da fila quando a luta começa
+  private removeFromQueue(fase: string, n1: string, n2: string) {
+    // Se estou começando uma Semi, removo da fila 'semi'
+    if (fase === 'semi') {
+      this.queues.semi = this.queues.semi.filter((n) => n !== n1 && n !== n2);
+    }
+    // Se estou começando Final, removo da fila 'final'
+    if (fase === 'final') {
+      this.queues.final = this.queues.final.filter((n) => n !== n1 && n !== n2);
+    }
   }
 }

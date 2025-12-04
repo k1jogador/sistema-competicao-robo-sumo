@@ -254,15 +254,15 @@ footer {
 
 /* Card de Passagem Direta (Bye) Slim */
 .bye-card {
-  border-color: #444 !important;
-  background: transparent !important;
-  opacity: 0.7;
+  border-color: #444;
+  background: #004e44;
 }
 .bye-label {
   text-align: center;
-  color: var(--accent-gold);
+  color: #ffad14;
   font-size: 0.7rem;
   margin-bottom: 5px;
+  font-weight: 900;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
@@ -271,6 +271,9 @@ footer {
 .phase-column.final .match-card {
   transform: scale(1.1);
   border-color: var(--accent-gold);
+}
+.bye-card .team-name {
+  color: white;
 }
 
 @keyframes pulse-red {
